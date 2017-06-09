@@ -1,0 +1,82 @@
+import collections
+import nltk.classify.util
+import nltk.metrics
+from nltk.corpus import movie_reviews as reviews
+from nltk.classify import NaiveBayesClassifier
+import time
+ 
+def basicStats(ids):
+    wordSet = set()
+    charLen = 0
+    wordCount = 0
+ 
+    for id in ids:
+        for word in reviews.words(id):
+            wordSet.add(word)
+            wordCount += 1
+            charLen += len(word)
+ 
+    print "Total unique words are: " + str(len(wordSet))
+    print "Average length of a word is: " + str(charLen/wordCount)
+ 
+ 
+ 
+ 
+def buildAndEvalClassifier():
+ 
+    testSet = collections.defaultdict(set)
+    referenceSet = collections.defaultdict(set)
+ 
+    negativeIds = reviews.fileids('neg')
+    positiveIds = reviews.fileids('pos')
+ 
+    negativeFeatures = [(getFeatureDictionary(reviews.words(fileids=[fileId])), 'neg') for fileId in negativeIds]
+ 
+    positiveFeatures = [(getFeatureDictionary(reviews.words(fileids=[fileId])), 'pos') for fileId in positiveIds]
+ 
+    basicStats(negativeIds)
+    basicStats(positiveIds)
+ 
+ 
+    negativeCutoff = len(negativeFeatures) * 2 / 4
+    positiveCutoff = len(positiveFeatures) * 2 / 4
+ 
+    train = negativeFeatures[:negativeCutoff] + positiveFeatures[:positiveCutoff]
+    test = negativeFeatures[negativeCutoff:] + positiveFeatures[positiveCutoff:]
+ 
+    classifierModel = NaiveBayesClassifier.train(train)
+ 
+    for i, (features, label) in enumerate(test):
+        print "i: " + str(i)
+        print (features, label)
+ 
+        referenceSet[label].add(i)
+        observed = classifierModel.classify(features)
+        testSet[observed].add(i)
+ 
+    print 'Accuracy of the Model: ' + str(nltk.classify.util.accuracy(classifierModel, test))
+ 
+    print '\'Positive\' precision: ' + str(nltk.metrics.precision(referenceSet['pos'], testSet['pos']))
+ 
+    print '\'Positive\' recall: ' + str(nltk.metrics.recall(referenceSet['pos'], testSet['pos']))
+ 
+    print '\'Negative\' precision: ' + str(nltk.metrics.precision(referenceSet['neg'], testSet['neg']))
+ 
+    print '\'Negative\' recall: ' + str(nltk.metrics.recall(referenceSet['neg'], testSet['neg']))
+ 
+    print 'F-Score of the Model: ' + str(nltk.metrics.scores.f_measure(set(referenceSet), set(testSet)))
+ 
+ 
+    classifierModel.show_most_informative_features()
+ 
+ 
+def getFeatureDictionary(words):
+    return dict([(word, True) for word in words])
+ 
+startTime = time.time()
+ 
+buildAndEvalClassifier()
+ 
+stopTime = time.time()
+ 
+print "Total time taken in seconds: " + str(stopTime - startTime)
